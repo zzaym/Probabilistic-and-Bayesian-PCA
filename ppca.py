@@ -4,11 +4,11 @@ Probablistic Principal Component Analysis using the EM algorithm from Tipping & 
 """
 
 import numpy             as np
-from numpy.random       import randn
-from numpy.random       import multivariate_normal
-from numpy.linalg       import pinv
-from numpy.linalg       import multi_dot
-from sklearn.exceptions import NotFittedError
+from numpy.random          import randn
+from numpy.random          import multivariate_normal
+from numpy.linalg          import pinv
+from numpy.linalg          import multi_dot
+from sklearn.exceptions    import NotFittedError
 
 class PPCA(object):
 
@@ -23,7 +23,7 @@ class PPCA(object):
         
         ####################### INITIALIZE OBSERVATIONS #######################
         # X: observations, X in R^(d*N), data assumed to be in R^(N*d)
-        self._X = data.T.copy()
+        self._X = data.T
         # d: dimension of observations
         self._d = self._X.shape[0]
         # N: number of observations
@@ -45,6 +45,16 @@ class PPCA(object):
             self._maximize_L()
         # C: covariance matrix of observation, x ~ N(mu, C)
         self._C = self._sigma2 * np.eye(self._d) + np.dot(self._W, self._W.T)
+    
+    def transform(self, data):
+        return np.dot(self._W.T, data.T - self._mu).T
+    
+    def fit_transform(self, data, n_iteration=500):
+        self.fit(data.T, n_iteration)
+        return self.transform(data.T)
+    
+    def components(self):
+        return self._W.T
     
     def generate(self, n_sample):
         try:
