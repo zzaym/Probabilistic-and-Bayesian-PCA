@@ -46,16 +46,6 @@ class PPCA(object):
         # C: covariance matrix of observation, x ~ N(mu, C)
         self._C = self._sigma2 * np.eye(self._d) + np.dot(self._W, self._W.T)
     
-    def transform(self, data):
-        return np.dot(self._W.T, data.T - self._mu).T
-    
-    def fit_transform(self, data, n_iteration=500):
-        self.fit(data.T, n_iteration)
-        return self.transform(data.T)
-    
-    def components(self):
-        return self._W.T
-    
     def generate(self, n_sample):
         try:
             return multivariate_normal(self._mu.flatten(), self._C, n_sample)
