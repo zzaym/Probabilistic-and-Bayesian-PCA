@@ -171,9 +171,9 @@ class BPCA(object):
 
 
     def get_elbos(self):
-        return None if elbos==None else elbos
+        return self.elbos
 
 
     def get_variation(self):
-        return None if variation==None else variation
+        return self.variations
 
