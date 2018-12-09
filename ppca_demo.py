@@ -5,8 +5,8 @@ from ppca               import PPCA
 
 if __name__ == '__main__':
     cov  = np.diag([10] + [1]*31 + [10] + [1]*31)**2
-    data = multivariate_normal(np.zeros(64), cov, 1000)
-    
+    data = multivariate_normal(np.zeros(64), cov, 64)
+   
     ppca1 = PPCA(n_dimension=2)
     ppca1.fit(data, method='EM')
     ppca2 = PPCA(n_dimension=2)
@@ -37,4 +37,20 @@ if __name__ == '__main__':
     ppca1 = PPCA(n_dimension=2)
     loglikelihoods = ppca1.fit(data, method='EM', keep_likelihoods=True)
     plt.plot(loglikelihoods[2:])
+    plt.show()
+ 
+    plt.matshow(data)
+    plt.title('original data')
+    plt.show()
+    
+    ppca3 = PPCA(n_dimension=2)
+    ppca3.fit(data, method='EM')
+    plt.matshow( ppca3.inverse_transform( ppca3.transform(data) ) )
+    plt.title('recovered data: 2-component')
+    plt.show()
+    
+    ppca4 = PPCA(n_dimension=63)
+    ppca4.fit(data, method='EM')
+    plt.matshow( ppca4.inverse_transform( ppca4.transform(data) ) )
+    plt.title('recovered data: 63-component')
     plt.show()
