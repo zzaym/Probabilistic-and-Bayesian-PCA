@@ -101,5 +101,8 @@ class PPCA(object):
     
     def _calculate_M(self):
         return self._sigma2 * np.eye(self._q) + np.dot(self._W.T, self._W)
+
+    def _return_W(self):
+        return self._W
         
         
