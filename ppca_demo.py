@@ -33,3 +33,8 @@ if __name__ == '__main__':
     plt.scatter(gene[:, 0], gene[:, 1], alpha=0.2);
     plt.title('generated data (first 2 dimensions) (fitted by eigendecomposition)')
     plt.show()
+    
+    ppca1 = PPCA(n_dimension=2)
+    loglikelihoods = ppca1.fit(data, method='EM', keep_likelihoods=True)
+    plt.plot(loglikelihoods[2:])
+    plt.show()
