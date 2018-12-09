@@ -43,9 +43,19 @@ class PPCA(object):
             raise ValueError('unrecognized method.')
             
         # C: covariance matrix of observation, x ~ N(mu, C)
-        self._C = self._sigma2 * np.eye(self._d) + np.dot(self._W, self._W.T)  
+        self._C = self._sigma2 * np.eye(self._d) + np.dot(self._W, self._W.T)
+        
+        # calculate the orthonormal basis
+        vals, vecs = eig(np.dot(self._W.T, self._W))
+        self._U = np.dot( self._W, pinv(np.dot(np.diag(vals**0.5), vecs.T)) )
         
         return likelihoods
+    
+    def transform(self, data):
+        return np.dot(data, self._U)
+    
+    def inverse_transform(self, reduced):
+        return np.dot(reduced, self._U.T)
     
     def generate(self, n_sample):
         try:
