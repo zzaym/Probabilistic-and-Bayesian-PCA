@@ -27,3 +27,5 @@ if __name__ == '__main__':
     plt.matshow(data_imputed)
     plt.title('imputed data')
     plt.show()
+    
+    print('reconstruction err: {}'.format(np.sqrt(np.sum(np.sum(np.square(data-data_imputed))))))
