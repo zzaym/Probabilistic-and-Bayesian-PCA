@@ -51,11 +51,20 @@ class PPCA(object):
         
         return likelihoods
     
-    def transform(self, data):
-        return np.dot(data, self._U)
+    def transform(self, data, probabilistic=True):
+        if probabilistic: 
+            M_inv = pinv(self._calculate_M())
+            means = multi_dot([M_inv, self._W.T, self._X-self._mu])
+            cov   = np.dot(self._sigma2, M_inv)
+            reduced = np.zeros(shape=(len(data), self._q))
+            for i in range(len(data)):
+                reduced[i] = multivariate_normal(means[:, i].flatten(), cov)
+            return reduced
+        else:
+            return np.dot((data-self._mu.T), self._U)
     
     def inverse_transform(self, reduced):
-        return np.dot(reduced, self._U.T)
+        return np.dot(reduced, self._U.T) + self._mu.T
     
     def generate(self, n_sample):
         try:
