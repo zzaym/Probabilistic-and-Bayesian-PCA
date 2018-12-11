@@ -22,10 +22,15 @@ class PPCA(object):
         # q: dimension of latent space
         self._q = n_dimension 
     
-    def fit(self, data, n_iteration=500, method='EM', keep_likelihoods=False):
+    def fit(self, data, batchsize=None, n_iteration=500, method='EM', 
+            keep_loglikes=False):
         
-        if method == 'eig' and keep_likelihoods: 
-            raise ValueError('Likelihood not supported for eig method') 
+        if method not in ('EM', 'eig'):
+            raise ValueError('unrecognized method.')
+        if method == 'eig' and keep_loglikes: 
+            raise ValueError('loglike not supported for eig method') 
+        if method == 'eig' and batchsize is not None:
+            raise ValueError('mini-batch not supported for eig method') 
         
         ####################### INITIALIZE OBSERVATIONS #######################
         # X: observations, X in R^(d*N), data assumed to be in R^(N*d)
@@ -35,44 +40,45 @@ class PPCA(object):
         # N: number of observations
         self._N = self._X.shape[1]
         # mu: mean of x, mu in R^(d)
-        self._mu = np.average(self._X, axis=1).reshape(-1, 1)
+        self._mu = np.mean(self._X, axis=1).reshape(-1, 1)
         
-        likelihoods = []
-        if   method == 'EM':
-            likelihoods = self._fit_EM(data, n_iteration, keep_likelihoods)
-        elif method == 'eig':
-            self._fit_eig(data) 
-        else:
-            raise ValueError('unrecognized method.')
-            
+        ##################### INITIALIZE LATENT VARIABLES #####################     
+        # W: linear transformation matrix, W in R^(d*q)
+        self._W      = randn(self._d, self._q)
+        # epsilon: Gaussian noise, epsilon in R^(d), epsilon ~ N(0, sigma^2 I)
+        self._sigma2 = 0
         # C: covariance matrix of observation, x ~ N(mu, C)
-        self._C = self._sigma2 * np.eye(self._d) + np.dot(self._W, self._W.T)
+        self._update_C()
         
-        # calculate the orthonormal basis
-        vals, vecs = eig(np.dot(self._W.T, self._W))
-        self._U = np.dot( self._W, pinv(np.dot(np.diag(vals**0.5), vecs.T)) )
+        loglikes = [] if keep_loglikes else None
         
-        return likelihoods
+        if   method == 'EM':
+            loglikes = self._fit_EM(batchsize, n_iteration, keep_loglikes)
+        else: #method == 'eig'
+            self._fit_eig(n_iteration) 
+        
+        return loglikes
     
-    def transform(self, data, probabilistic=True):
+    def transform(self, data_observ, probabilistic=False):
+        invM = pinv(self._calc_M())
+        expect_data_latent = multi_dot([invM, self._W.T, self._X-self._mu])
         if probabilistic: 
-            M_inv = pinv(self._calculate_M())
-            means = multi_dot([M_inv, self._W.T, self._X-self._mu])
-            cov   = np.dot(self._sigma2, M_inv)
-            reduced = np.zeros(shape=(len(data), self._q))
-            for i in range(len(data)):
-                reduced[i] = multivariate_normal(means[:, i].flatten(), cov)
-            return reduced
+            cov   = np.dot(self._sigma2, invM)
+            data_latent = np.zeros(shape=(len(data_observ), self._q))
+            for i in range(len(data_observ)):
+                data_latent[i] = multivariate_normal(expect_data_latent[:, i].flatten(), cov)
+            return data_latent
         else:
-            return np.dot((data-self._mu.T), self._U)
+            return expect_data_latent.T
     
-    def inverse_transform(self, reduced, probabilistic=False):
+    def inverse_transform(self, data_latent, probabilistic=False):
+        expec_data_observ = np.dot(self._W, data_latent.T) + self._mu
         if probabilistic:
-            return (np.dot(self._W, reduced.T) + self._mu
+            return (expec_data_observ
                    + normal(scale=np.sqrt(self._sigma2), size=self._X.shape)).T
         else:
-            return np.dot(reduced, self._U.T) + self._mu.T
-    
+            return expec_data_observ.T
+        
     def generate(self, n_sample):
         try:
             return multivariate_normal(self._mu.flatten(), self._C, n_sample)
@@ -80,31 +86,34 @@ class PPCA(object):
             raise NotFittedError('This PPCA instance is not fitted yet. Call \'fit\' with appropriate arguments before using this method.')
         
     ######################## FITTING BY EM ALGORITHM ##########################
-    def _fit_EM(self, data, n_iteration=500, keep_likelihoods=False):
+    def _fit_EM(self, batchsize, n_iteration=500, keep_loglikes=False):
         
-        ##################### INITIALIZE LATENT VARIABLES #####################     
-        # W: linear transformation matrix, W in R^(d*q)
-        self._W      = randn(self._d, self._q)
-        # z: latent variable, z in R^(q)
-        self._Z      = randn(self._q, self._N)
-        # epsilon: Gaussian noise, epsilon in R^(d), epsilon ~ N(0, sigma^2 I)
-        self._sigma2 = np.abs(randn())
+        if batchsize is not None and batchsize > self._N:
+            raise ValueError('batchsize exceeds number of observations') 
         
-        likelihoods =[]
+        loglikes = [] if keep_loglikes else None
+        
         for i in range(n_iteration):
             # E-step: Estimation   (omitted)
             # M-step: Maximization
-            self._maximize_L()
-            if keep_likelihoods:
-                likelihoods.append(self._calc_likelihood())
+            if batchsize is not None:
+                idx = self.batch_idx(i, batchsize)
+                Xb  = self._X[:, idx]
+                self._maximize_L(Xb, np.mean(Xb, axis=1).reshape(-1, 1))
+            else:
+                self._maximize_L(self._X, self._mu)
+                
+            if keep_loglikes:
+                loglikes.append(self._calc_loglike(self._X, self._mu))
         
-        return likelihoods
+        return loglikes
     
-    def _maximize_L(self):
-        S = self._calculate_S()
-        M = self._calculate_M()
+    def _maximize_L(self, X, mu):
+        S = self._calc_S(X, mu)
+        M = self._calc_M()
         self._update_W(S, M)
         self._update_sigma2(S, M)
+        self._update_C()
     
     def _update_W(self, S, M):
         temp = pinv( self._sigma2 * np.eye(self._q) \
@@ -113,20 +122,12 @@ class PPCA(object):
     
     def _update_sigma2(self, S, M):
         temp = multi_dot([ S, self._W, pinv(M), self._W.T ])
-        self._sigma2 = 1/self._d * np.trace(S - temp)
-    
-    def _calc_likelihood(self):
-        C = self._sigma2 * np.eye(self._d) + np.dot(self._W, self._W.T)
-        S = self._calculate_S()
-        return -self._N*self._d/2 * np.log(2*np.pi) \
-               -self._N/2 * np.log(det(C)) \
-               -self._N/2 * np.trace(np.dot( pinv(C), S ))
-    
+        self._sigma2 = 1/self._d * np.trace(S - temp)    
     
     ##################### FITTING BY EIGENDECOMPOSITION #######################
-    def _fit_eig(self, data, n_iteration=500):
+    def _fit_eig(self, n_iteration=500):
         
-        S = self._calculate_S()
+        S = self._calc_S(self._X, self._mu)
         vals, vecs = eig(S)
         ordbydom = np.argsort(vals)[::-1]
         topq_dom = ordbydom[:self._q]
@@ -134,18 +135,28 @@ class PPCA(object):
         self._sigma2 = np.sum(vals[less_dom]) / (self._d - self._q)
         self._W = np.dot( vecs[:, topq_dom], 
                           np.sqrt(np.diag(vals[topq_dom])-self._sigma2*np.eye(self._q)) )
-        # eig, sort, sigma
-        return # todo
+        self._update_C()
     
     ########################### UTILITY FUNCTIONS #############################
-    def _calculate_S(self):
-        centeredX = self._X - self._mu
-        return np.dot(centeredX, centeredX.T) / self._N
+    def _calc_S(self, X, mu):
+        centeredX = X - mu
+        return np.dot(centeredX, centeredX.T) / X.shape[1]
     
-    def _calculate_M(self):
+    def _calc_M(self):
         return self._sigma2 * np.eye(self._q) + np.dot(self._W.T, self._W)
-
-    def _return_W(self):
-        return self._W
+    
+    def _calc_loglike(self, X, mu):
+        return -self._N/2 * (self._d*np.log(2*np.pi) \
+               + np.log(det(self._C)) \
+               + np.trace(np.dot(pinv(self._C), self._calc_S(X, mu))))
+      
+    def _update_C(self):
+        self._C = self._sigma2 * np.eye(self._d) + np.dot(self._W, self._W.T)
         
-        
+    def batch_idx(self, i, batchsize):
+        if batchsize == self._N:
+            return np.arange(self._N)
+        idx1 = (i*batchsize)     % self._N
+        idx2 = ((i+1)*batchsize) % self._N
+        if idx2 < idx1:    idx1 -= self._N
+        return np.arange(idx1, idx2)
