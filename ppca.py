@@ -5,6 +5,7 @@ Probablistic Principal Component Analysis using the EM algorithm from Tipping & 
 
 import numpy as np
 from numpy.random          import randn
+from numpy.random          import normal
 from numpy.random          import multivariate_normal
 from numpy.linalg          import det
 from numpy.linalg          import eig
@@ -33,6 +34,8 @@ class PPCA(object):
         self._d = self._X.shape[0]
         # N: number of observations
         self._N = self._X.shape[1]
+        # mu: mean of x, mu in R^(d)
+        self._mu = np.average(self._X, axis=1).reshape(-1, 1)
         
         likelihoods = []
         if   method == 'EM':
@@ -63,8 +66,12 @@ class PPCA(object):
         else:
             return np.dot((data-self._mu.T), self._U)
     
-    def inverse_transform(self, reduced):
-        return np.dot(reduced, self._U.T) + self._mu.T
+    def inverse_transform(self, reduced, probabilistic=False):
+        if probabilistic:
+            return (np.dot(self._W, reduced.T) + self._mu
+                   + normal(scale=np.sqrt(self._sigma2), size=self._X.shape)).T
+        else:
+            return np.dot(reduced, self._U.T) + self._mu.T
     
     def generate(self, n_sample):
         try:
@@ -80,8 +87,6 @@ class PPCA(object):
         self._W      = randn(self._d, self._q)
         # z: latent variable, z in R^(q)
         self._Z      = randn(self._q, self._N)
-        # mu: mean of x, mu in R^(d)
-        self._mu     = randn(self._d, 1)
         # epsilon: Gaussian noise, epsilon in R^(d), epsilon ~ N(0, sigma^2 I)
         self._sigma2 = np.abs(randn())
         
@@ -121,7 +126,6 @@ class PPCA(object):
     ##################### FITTING BY EIGENDECOMPOSITION #######################
     def _fit_eig(self, data, n_iteration=500):
         
-        self._mu = np.average(self._X, axis=1).reshape(-1, 1)
         S = self._calculate_S()
         vals, vecs = eig(S)
         ordbydom = np.argsort(vals)[::-1]
