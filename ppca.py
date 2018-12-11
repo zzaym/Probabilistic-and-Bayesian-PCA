@@ -74,12 +74,12 @@ class PPCA(object):
             return expect_data_latent.T
     
     def inverse_transform(self, data_latent, probabilistic=False):
-        expec_data_observ = np.dot(self._W, data_latent.T) + self._mu
+        expect_data_observ = np.dot(self._W, data_latent.T) + self._mu
         if probabilistic:
-            return (expec_data_observ
-                   + normal(scale=np.sqrt(self._sigma2), size=self._X.shape)).T
+            return (expect_data_observ
+                   + normal(scale=np.sqrt(self._sigma2), size=expect_data_observ.shape)).T
         else:
-            return expec_data_observ.T
+            return expect_data_observ.T
         
     def generate(self, n_sample):
         try:
