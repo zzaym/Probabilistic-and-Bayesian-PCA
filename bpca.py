@@ -103,15 +103,6 @@ class BPCA(object):
         return -entropy + logprior + loglikelihood
 
 
-    def calculate_variation(self):
-        z = np.array([np.random.multivariate_normal(self.mean_z[:,i], self.cov_z) for i in range(self.b)]).T
-        mu = np.random.multivariate_normal(self.mean_mu.flatten(), self.cov_mu)
-        w = np.array([np.random.multivariate_normal(self.mean_w[i], self.cov_w) for i in range(self.d)])
-        pred = np.dot(w, z) + mu.reshape(-1,1)
-        mse = np.sum((self.Xb-pred)**2)
-        return mse / np.sum(self.Xb**2)
-
-
     def batch_idx(self, i):
         if self.b == self.N:
             return np.arange(self.N)
@@ -122,7 +113,7 @@ class BPCA(object):
         return np.arange(idx1, idx2)
 
 
-    def fit(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_variation=False, trace_loglikelihood=False):
+    def fit(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_loglikelihood=False):
          # data, # of samples, dims
         self.X = X.T # don't need to transpose X when passing it
         self.d = self.X.shape[0]
@@ -147,22 +138,18 @@ class BPCA(object):
         order = np.arange(self.N)
         elbos = np.zeros(iters)
         loglikelihoods = np.zeros(iters)
-        variations = np.zeros(iters)
         for i in range(iters):
             idx = order[self.batch_idx(i)]
             self.Xb = self.X[:,idx]
             self.update()
             if trace_elbo:
                 elbos[i] = self.calculate_ELBO()
-            if trace_variation:
-                variations[i] = self.calculate_variation()
             if trace_loglikelihood:
                 loglikelihoods[i] = self.calculate_log_likelihood()
             if verbose and i % print_every == 0:
                 print('Iter %d, ELBO: %f, alpha: %s' % (i, elbos[i], str(self.alpha)))
         self.captured_dims()
         self.elbos = elbos if trace_elbo else None
-        self.variations = variations if trace_variation else None
         self.loglikelihoods = loglikelihoods if trace_loglikelihood else None
 
 
@@ -186,8 +173,8 @@ class BPCA(object):
         return np.array([np.random.multivariate_normal(self.mean_mu.flatten(), c) for i in range(n)])
 
 
-    def fit_transform(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_variation=False):
-        self.fit(X, batch_size, iters, print_every, verbose, trace_elbo, trace_varation)
+    def fit_transform(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_loglikelihood=False):
+        self.fit(X, batch_size, iters, print_every, verbose, trace_elbo)
         return self.transform()
 
 
@@ -205,10 +192,6 @@ class BPCA(object):
 
     def get_elbo(self):
         return self.elbos
-
-
-    def get_variation(self):
-        return self.variations
 
 
     def get_loglikelihood(self):
