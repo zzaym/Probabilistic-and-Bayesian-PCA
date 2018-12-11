@@ -16,7 +16,7 @@ if __name__ == '__main__':
     
     # impute by PCA 
     imputer = PCAImputer(n_dimension=2)
-    data_imputed = imputer.fit_transform(data_missing)
+    data_imputed = imputer.fit_transform(data_missing, n_iteration=100)
     
     plt.matshow(data)
     plt.title('original data')
