@@ -14,6 +14,10 @@ class BPCA(object):
         self.a_tau = a_tau
         self.b_tau = b_tau
         self.beta = beta
+        self.elbos = None
+        self.variations = None
+        self.loglikelihoods = None
+
 
     def update(self):
         self.tau = self.a_tau_tilde / self.b_tau_tilde
@@ -39,6 +43,15 @@ class BPCA(object):
                         -2 * np.dot(self.Xb[:,i], self.mean_mu.flatten())
                         for i in range(self.b)]))
         
+    
+    def calculate_log_likelihood(self):
+        z = np.array([np.random.multivariate_normal(self.mean_z[:,i], self.cov_z) for i in range(self.b)]).T
+        mu = np.random.multivariate_normal(self.mean_mu.flatten(), self.cov_mu)
+        w = np.array([np.random.multivariate_normal(self.mean_w[i], self.cov_w) for i in range(self.d)])
+        pred = np.dot(w, z) + mu.reshape(-1,1)
+        loglikelihood = np.sum(np.array([mvn.logpdf(self.Xb[:,i], pred[:,i], np.eye(self.d)/self.tau) for i in range(self.b)]))
+        return loglikelihood
+
 
     def calculate_ELBO(self):
         '''ELBO = E_q[-log(q(theta))+log(p(theta)+log(p(Y|theta,X)))]
@@ -90,7 +103,7 @@ class BPCA(object):
         return -entropy + logprior + loglikelihood
 
 
-    def calculate_varation(self):
+    def calculate_variation(self):
         z = np.array([np.random.multivariate_normal(self.mean_z[:,i], self.cov_z) for i in range(self.b)]).T
         mu = np.random.multivariate_normal(self.mean_mu.flatten(), self.cov_mu)
         w = np.array([np.random.multivariate_normal(self.mean_w[i], self.cov_w) for i in range(self.d)])
@@ -109,12 +122,13 @@ class BPCA(object):
         return np.arange(idx1, idx2)
 
 
-    def fit(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_variation=False):
+    def fit(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_variation=False, trace_loglikelihood=False):
          # data, # of samples, dims
         self.X = X.T # don't need to transpose X when passing it
         self.d = self.X.shape[0]
         self.N = self.X.shape[1]
         self.q = self.d-1
+        self.ed = []
         self.b = min(batch_size, self.N)
 
         # variational parameters
@@ -132,6 +146,7 @@ class BPCA(object):
         # update
         order = np.arange(self.N)
         elbos = np.zeros(iters)
+        loglikelihoods = np.zeros(iters)
         variations = np.zeros(iters)
         for i in range(iters):
             idx = order[self.batch_idx(i)]
@@ -140,26 +155,40 @@ class BPCA(object):
             if trace_elbo:
                 elbos[i] = self.calculate_ELBO()
             if trace_variation:
-                variations[i] = self.calculate_varation()
+                variations[i] = self.calculate_variation()
+            if trace_loglikelihood:
+                loglikelihoods[i] = self.calculate_log_likelihood()
             if verbose and i % print_every == 0:
                 print('Iter %d, ELBO: %f, alpha: %s' % (i, elbos[i], str(self.alpha)))
+        self.captured_dims()
         self.elbos = elbos if trace_elbo else None
         self.variations = variations if trace_variation else None
+        self.loglikelihoods = loglikelihoods if trace_loglikelihood else None
+
+
+    def captured_dims(self):
+        sum_alpha = np.sum(1/self.alpha)
+        self.ed = np.array([i for i, inv_alpha in enumerate(1/self.alpha) if inv_alpha > sum_alpha/self.q])
 
 
     def transform(self, X=None):
-        X = self.X if X==None else X.T
-        z =  self.tau * np.dot(np.dot(self.cov_z, self.mean_w.T), X - self.mean_mu)
-        return z.T
+        X = self.X if X is None else X.T
+        w = self.mean_w[:, self.ed]
+        m = np.eye(len(self.ed))/self.tau + np.dot(w.T, w)
+        inv_m = np.linalg.inv(m)
+        z = np.dot(np.dot(inv_m, w.T), X - self.mean_mu)
+        return np.array([np.random.multivariate_normal(z[:,i], inv_m/self.tau) for i in range(X.shape[1])])
+
+
+    def inv_transform(self, n):
+        w = self.mean_w[:, self.ed]
+        c = np.eye(self.d)/self.tau + np.dot(w, w.T)
+        return np.array([np.random.multivariate_normal(self.mean_mu.flatten(), c) for i in range(n)])
 
 
     def fit_transform(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_variation=False):
         self.fit(X, batch_size, iters, print_every, verbose, trace_elbo, trace_varation)
         return self.transform()
-
-
-    def generate(self):
-        return np.array([np.random.multivariate_normal(self.mean_z[:,i], self.cov_z) for i in range(self.N)])
 
 
     def get_weight_matrix(self):
@@ -170,10 +199,18 @@ class BPCA(object):
         return self.alpha
 
 
-    def get_elbos(self):
+    def get_effective_dims(self):
+        return len(self.ed)
+
+
+    def get_elbo(self):
         return self.elbos
 
 
     def get_variation(self):
         return self.variations
+
+
+    def get_loglikelihood(self):
+        return self.loglikelihoods
 
