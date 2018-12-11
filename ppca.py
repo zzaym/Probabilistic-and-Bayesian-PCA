@@ -61,7 +61,9 @@ class PPCA(object):
     
     def transform(self, data_observ, probabilistic=False):
         invM = pinv(self._calc_M())
-        expect_data_latent = multi_dot([invM, self._W.T, self._X-self._mu])
+        expect_data_latent = multi_dot([invM, self._W.T, 
+                                        data_observ.T - self._mu])
+        assert expect_data_latent.shape == (self._q, len(data_observ))
         if probabilistic: 
             cov   = np.dot(self._sigma2, invM)
             data_latent = np.zeros(shape=(len(data_observ), self._q))
@@ -129,6 +131,7 @@ class PPCA(object):
         
         S = self._calc_S(self._X, self._mu)
         vals, vecs = eig(S)
+        vals, vecs = vals.real, vecs.real
         ordbydom = np.argsort(vals)[::-1]
         topq_dom = ordbydom[:self._q]
         less_dom = ordbydom[self._q:]
