@@ -2,6 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy
 from scipy.stats import multivariate_normal as mvn
 from scipy.stats import gamma
 
@@ -44,12 +45,22 @@ class BPCA(object):
                         for i in range(self.b)]))
         
     
+    # def calculate_log_likelihood(self):
+    #     z = np.array([np.random.multivariate_normal(self.mean_z[:,i], self.cov_z) for i in range(self.b)]).T
+    #     mu = np.random.multivariate_normal(self.mean_mu.flatten(), self.cov_mu)
+    #     w = np.array([np.random.multivariate_normal(self.mean_w[i], self.cov_w) for i in range(self.d)])
+    #     pred = np.dot(w, z) + mu.reshape(-1,1)
+    #     loglikelihood = np.sum(np.array([mvn.logpdf(self.Xb[:,i], pred[:,i], np.eye(self.d)/self.tau) for i in range(self.b)]))
+    #     return loglikelihood
+
     def calculate_log_likelihood(self):
-        z = np.array([np.random.multivariate_normal(self.mean_z[:,i], self.cov_z) for i in range(self.b)]).T
-        mu = np.random.multivariate_normal(self.mean_mu.flatten(), self.cov_mu)
-        w = np.array([np.random.multivariate_normal(self.mean_w[i], self.cov_w) for i in range(self.d)])
-        pred = np.dot(w, z) + mu.reshape(-1,1)
-        loglikelihood = np.sum(np.array([mvn.logpdf(self.Xb[:,i], pred[:,i], np.eye(self.d)/self.tau) for i in range(self.b)]))
+        w = self.mean_w
+        c = np.eye(self.d)/self.tau + np.dot(w, w.T) 
+        xc = self.X - self.X.mean(axis=1).reshape(-1,1)
+        s = np.dot(xc, xc.T) / self.N
+        self.s = s
+        c_inv_s = scipy.linalg.lstsq(c, s)[0]
+        loglikelihood = -0.5*self.N*(self.d*np.log(2*np.pi)+np.log(np.linalg.det(c))+np.trace(c_inv_s))
         return loglikelihood
 
 
@@ -147,7 +158,7 @@ class BPCA(object):
             if trace_loglikelihood:
                 loglikelihoods[i] = self.calculate_log_likelihood()
             if verbose and i % print_every == 0:
-                print('Iter %d, ELBO: %f, alpha: %s' % (i, elbos[i], str(self.alpha)))
+                print('Iter %d, LL: %f, alpha: %s' % (i, loglikelihoods[i], str(self.alpha)))
         self.captured_dims()
         self.elbos = elbos if trace_elbo else None
         self.loglikelihoods = loglikelihoods if trace_loglikelihood else None
@@ -167,15 +178,22 @@ class BPCA(object):
         return np.array([np.random.multivariate_normal(z[:,i], inv_m/self.tau) for i in range(X.shape[1])])
 
 
-    def inv_transform(self, n):
+    def inv_transform(self, z):
+        z = z.T
         w = self.mean_w[:, self.ed]
-        c = np.eye(self.d)/self.tau + np.dot(w, w.T)
-        return np.array([np.random.multivariate_normal(self.mean_mu.flatten(), c) for i in range(n)])
+        x = np.dot(w, z) + self.mean_mu
+        return np.array([np.random.multivariate_normal(x[:,i], np.eye(self.d)/self.tau) for i in range(z.shape[1])])
 
 
     def fit_transform(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_loglikelihood=False):
         self.fit(X, batch_size, iters, print_every, verbose, trace_elbo)
         return self.transform()
+
+
+    def generate(self, size=1):
+        w = self.mean_w[:, self.ed]
+        c = np.eye(self.d)/self.tau + np.dot(w, w.T)
+        return np.array([np.random.multivariate_normal(self.mean_mu.flatten(), c) for i in range(size)])
 
 
     def get_weight_matrix(self):
@@ -188,6 +206,12 @@ class BPCA(object):
 
     def get_effective_dims(self):
         return len(self.ed)
+
+
+    def get_cov_mat(self):
+        w = self.mean_w[:, self.ed]
+        c = np.eye(self.d)/self.tau + np.dot(w, w.T) 
+        return c
 
 
     def get_elbo(self):
