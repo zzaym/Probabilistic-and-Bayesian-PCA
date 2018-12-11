@@ -6,7 +6,7 @@ class PCAImputer:
     def __init__(self, n_dimension):
         self._q = n_dimension
     
-    def fit_transform(self, data, method='eig', n_iteration=100):
+    def fit_transform(self, data, method='eig', probabilistic=False, n_iteration=100):
         self._data     = data.copy() 
         self._missing  = np.isnan(data)
         self._observed = ~self._missing
@@ -18,7 +18,7 @@ class PCAImputer:
         self._data[self._missing] = row_means[self._missing]
         for i in range(n_iteration):
             self._pca.fit(self._data, method=method)
-            self._data[self._missing] = self._pca.inverse_transform( \
-                                        self._pca.transform(self._data) )[self._missing]
+            self._data[self._missing] = self._pca.inverse_transform(self._pca.transform(self._data, \
+                                        probabilistic), probabilistic)[self._missing]
         return self._data
     
