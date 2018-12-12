@@ -60,6 +60,7 @@ class PPCA(object):
         return loglikes
     
     def transform(self, data_observ, probabilistic=False):
+        assert len(data_observ.shape) == 2
         invM = pinv(self._calc_M())
         expect_data_latent = multi_dot([invM, self._W.T, 
                                         data_observ.T - self._mu])
@@ -74,6 +75,7 @@ class PPCA(object):
             return expect_data_latent.T
     
     def inverse_transform(self, data_latent, probabilistic=False):
+        assert len(data_latent.shape) == 2
         expect_data_observ = np.dot(self._W, data_latent.T) + self._mu
         if probabilistic:
             return (expect_data_observ
