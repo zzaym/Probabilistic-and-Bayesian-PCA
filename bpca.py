@@ -44,14 +44,6 @@ class BPCA(object):
                         -2 * np.dot(self.Xb[:,i], self.mean_mu.flatten())
                         for i in range(self.b)]))
         
-    
-    # def calculate_log_likelihood(self):
-    #     z = np.array([np.random.multivariate_normal(self.mean_z[:,i], self.cov_z) for i in range(self.b)]).T
-    #     mu = np.random.multivariate_normal(self.mean_mu.flatten(), self.cov_mu)
-    #     w = np.array([np.random.multivariate_normal(self.mean_w[i], self.cov_w) for i in range(self.d)])
-    #     pred = np.dot(w, z) + mu.reshape(-1,1)
-    #     loglikelihood = np.sum(np.array([mvn.logpdf(self.Xb[:,i], pred[:,i], np.eye(self.d)/self.tau) for i in range(self.b)]))
-    #     return loglikelihood
 
     def calculate_log_likelihood(self):
         w = self.mean_w
