@@ -32,30 +32,20 @@ class BPCA(object):
         self.cov_w = np.linalg.inv(np.diag(self.alpha) + self.tau *
                         (self.b * self.cov_z + np.dot(self.mean_z, self.mean_z.T)))
         self.mean_w = self.tau * np.dot(self.cov_w, np.dot(self.mean_z, (self.Xb-self.mean_mu).T)).T
-        self.b_alpha_tilde = self.b_alpha + (np.trace(self.cov_w) +
-                        np.array([np.dot(self.mean_w[:,i], self.mean_w[:,i]) for i in range(self.q)])) / 2
-        self.b_tau_tilde = self.b_tau + 0.5 * np.sum(np.array([
-                        np.dot(self.Xb[:,i], self.Xb[:,i]) +
-                        np.trace(self.cov_mu) + np.dot(self.mean_mu.flatten(), self.mean_mu.flatten()) +
-                        np.trace(np.dot(np.trace(self.cov_w)+np.dot(self.mean_w.T, self.mean_w),
-                                        self.cov_z+np.outer(self.mean_z[:,i], self.mean_z[:,i]))) +
-                        2 * np.dot(np.dot(self.mean_mu.flatten(), self.mean_w), self.mean_z[:,i]) +
-                        -2 * np.dot(self.Xb[:,i], np.dot(self.mean_w, self.mean_z[:,i]))+
-                        -2 * np.dot(self.Xb[:,i], self.mean_mu.flatten())
-                        for i in range(self.b)]))
+        self.b_alpha_tilde = self.b_alpha + 0.5 * (np.trace(self.cov_w) +
+                        np.diag(np.dot(self.mean_w.T, self.mean_w)))
+        self.b_tau_tilde = self.b_tau + 0.5 * np.trace(np.dot(self.Xb.T, self.Xb)) + \
+                        0.5 * self.b*(np.trace(self.cov_mu)+np.dot(self.mean_mu.flatten(), self.mean_mu.flatten())) + \
+                        0.5 * np.trace(np.dot(np.trace(self.cov_w)+np.dot(self.mean_w.T, self.mean_w),
+                                        self.b*self.cov_z+np.dot(self.mean_z, self.mean_z.T))) + \
+                        np.sum(np.dot(np.dot(self.mean_mu.flatten(), self.mean_w), self.mean_z)) + \
+                        -np.trace(np.dot(self.Xb.T, np.dot(self.mean_w, self.mean_z))) + \
+                        -np.sum(np.dot(self.Xb.T, self.mean_mu))
         
-    
-    # def calculate_log_likelihood(self):
-    #     z = np.array([np.random.multivariate_normal(self.mean_z[:,i], self.cov_z) for i in range(self.b)]).T
-    #     mu = np.random.multivariate_normal(self.mean_mu.flatten(), self.cov_mu)
-    #     w = np.array([np.random.multivariate_normal(self.mean_w[i], self.cov_w) for i in range(self.d)])
-    #     pred = np.dot(w, z) + mu.reshape(-1,1)
-    #     loglikelihood = np.sum(np.array([mvn.logpdf(self.Xb[:,i], pred[:,i], np.eye(self.d)/self.tau) for i in range(self.b)]))
-    #     return loglikelihood
 
     def calculate_log_likelihood(self):
         w = self.mean_w
-        c = np.eye(self.d)/self.tau + np.dot(w, w.T) 
+        c = np.eye(self.d)*self.tau + np.dot(w, w.T) 
         xc = self.X - self.X.mean(axis=1).reshape(-1,1)
         s = np.dot(xc, xc.T) / self.N
         self.s = s
@@ -169,20 +159,30 @@ class BPCA(object):
         self.ed = np.array([i for i, inv_alpha in enumerate(1/self.alpha) if inv_alpha > sum_alpha/self.q])
 
 
-    def transform(self, X=None):
+    def transform(self, X=None, full=True):
         X = self.X if X is None else X.T
-        w = self.mean_w[:, self.ed]
-        m = np.eye(len(self.ed))/self.tau + np.dot(w.T, w)
+        if full:
+            w = self.mean_w
+            l = self.q
+        else:
+            w = self.mean_w[:,ed]
+            l = len(self.ed)
+        m = np.eye(l)*self.tau + np.dot(w.T, w)
         inv_m = np.linalg.inv(m)
         z = np.dot(np.dot(inv_m, w.T), X - self.mean_mu)
-        return np.array([np.random.multivariate_normal(z[:,i], inv_m/self.tau) for i in range(X.shape[1])])
+        return z.T
+        # return np.array([np.random.multivariate_normal(z[:,i], inv_m*self.tau) for i in range(X.shape[1])])
 
 
-    def inv_transform(self, z):
+    def inverse_transform(self, z, full=True):
         z = z.T
-        w = self.mean_w[:, self.ed]
+        if full:
+            w = self.mean_w
+        else:
+            w = self.mean_w[:,ed]
         x = np.dot(w, z) + self.mean_mu
-        return np.array([np.random.multivariate_normal(x[:,i], np.eye(self.d)/self.tau) for i in range(z.shape[1])])
+        return x.T
+        # return np.array([np.random.multivariate_normal(x[:,i], np.eye(self.d)*self.tau) for i in range(z.shape[1])])
 
 
     def fit_transform(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_loglikelihood=False):
@@ -192,7 +192,7 @@ class BPCA(object):
 
     def generate(self, size=1):
         w = self.mean_w[:, self.ed]
-        c = np.eye(self.d)/self.tau + np.dot(w, w.T)
+        c = np.eye(self.d)*self.tau + np.dot(w, w.T)
         return np.array([np.random.multivariate_normal(self.mean_mu.flatten(), c) for i in range(size)])
 
 
@@ -210,7 +210,7 @@ class BPCA(object):
 
     def get_cov_mat(self):
         w = self.mean_w[:, self.ed]
-        c = np.eye(self.d)/self.tau + np.dot(w, w.T) 
+        c = np.eye(self.d)*self.tau + np.dot(w, w.T) 
         return c
 
 
