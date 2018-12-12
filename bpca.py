@@ -32,17 +32,15 @@ class BPCA(object):
         self.cov_w = np.linalg.inv(np.diag(self.alpha) + self.tau *
                         (self.b * self.cov_z + np.dot(self.mean_z, self.mean_z.T)))
         self.mean_w = self.tau * np.dot(self.cov_w, np.dot(self.mean_z, (self.Xb-self.mean_mu).T)).T
-        self.b_alpha_tilde = self.b_alpha + (np.trace(self.cov_w) +
-                        np.array([np.dot(self.mean_w[:,i], self.mean_w[:,i]) for i in range(self.q)])) / 2
-        self.b_tau_tilde = self.b_tau + 0.5 * np.sum(np.array([
-                        np.dot(self.Xb[:,i], self.Xb[:,i]) +
-                        np.trace(self.cov_mu) + np.dot(self.mean_mu.flatten(), self.mean_mu.flatten()) +
-                        np.trace(np.dot(np.trace(self.cov_w)+np.dot(self.mean_w.T, self.mean_w),
-                                        self.cov_z+np.outer(self.mean_z[:,i], self.mean_z[:,i]))) +
-                        2 * np.dot(np.dot(self.mean_mu.flatten(), self.mean_w), self.mean_z[:,i]) +
-                        -2 * np.dot(self.Xb[:,i], np.dot(self.mean_w, self.mean_z[:,i]))+
-                        -2 * np.dot(self.Xb[:,i], self.mean_mu.flatten())
-                        for i in range(self.b)]))
+        self.b_alpha_tilde = self.b_alpha + 0.5 * (np.trace(self.cov_w) +
+                        np.diag(np.dot(self.mean_w.T, self.mean_w)))
+        self.b_tau_tilde = self.b_tau + 0.5 * np.trace(np.dot(self.Xb.T, self.Xb)) + \
+                        0.5 * self.b*(np.trace(self.cov_mu)+np.dot(self.mean_mu.flatten(), self.mean_mu.flatten())) + \
+                        0.5 * np.trace(np.dot(np.trace(self.cov_w)+np.dot(self.mean_w.T, self.mean_w),
+                                        self.b*self.cov_z+np.dot(self.mean_z, self.mean_z.T))) + \
+                        np.sum(np.dot(np.dot(self.mean_mu.flatten(), self.mean_w), self.mean_z)) + \
+                        -np.trace(np.dot(self.Xb.T, np.dot(self.mean_w, self.mean_z))) + \
+                        -np.sum(np.dot(self.Xb.T, self.mean_mu))
         
 
     def calculate_log_likelihood(self):
