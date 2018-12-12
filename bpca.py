@@ -22,7 +22,7 @@ class BPCA(object):
 
     def update(self):
         self.tau = self.a_tau_tilde / self.b_tau_tilde
-        self.alpha = (self.a_alpha_tilde / self.b_alpha_tilde).flatten()
+        self.alpha = self.a_alpha_tilde / self.b_alpha_tilde
         self.cov_z = np.linalg.inv(np.eye(self.q) + self.tau *
                         (np.trace(self.cov_w) + np.dot(self.mean_w.T, self.mean_w)))
         self.mean_z = self.tau * np.dot(np.dot(self.cov_z, self.mean_w.T), self.Xb - self.mean_mu)
@@ -131,7 +131,7 @@ class BPCA(object):
         self.mean_w = np.random.randn(self.d, self.q)
         self.cov_w = np.eye(self.q)
         self.a_alpha_tilde = self.a_alpha + self.d/2
-        self.b_alpha_tilde = np.abs(np.random.randn(self.q, 1))
+        self.b_alpha_tilde = np.abs(np.random.randn(self.q))
         self.a_tau_tilde = self.a_tau + self.b * self.d / 2
         self.b_tau_tilde = np.abs(np.random.randn(1))
 
