@@ -88,7 +88,10 @@ class PPCA(object):
             return multivariate_normal(self._mu.flatten(), self._C, n_sample)
         except:
             raise NotFittedError('This PPCA instance is not fitted yet. Call \'fit\' with appropriate arguments before using this method.')
-        
+    
+    def calc_components(self):
+        vals, vecs = eig(np.dot(self._W.T, self._W))
+        return np.dot( self._W, pinv(np.dot(np.diag(vals**0.5), vecs.T)) ).T
     ######################## FITTING BY EM ALGORITHM ##########################
     def _fit_EM(self, batchsize, n_iteration=500, keep_loglikes=False):
         
