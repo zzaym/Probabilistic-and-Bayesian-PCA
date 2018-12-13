@@ -156,7 +156,7 @@ class PPCA(object):
     def _calc_loglike(self, X, mu):
         return -self._N/2 * (self._d*np.log(2*np.pi) \
                + np.log(det(self._C)) \
-               + np.trace(np.dot(pinv(self._C), self._calc_S(X.T, mu.reshape(-1,1)))))
+               + np.trace(np.dot(pinv(self._C), self._calc_S(X, mu.reshape(-1,1)))))
       
     def _update_C(self):
         self._C = self._sigma2 * np.eye(self._d) + np.dot(self._W, self._W.T)
