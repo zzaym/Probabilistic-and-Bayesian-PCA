@@ -16,7 +16,7 @@ class PCAImputer:
             self._pca = BPCA()
     
     def fit_transform(self, data, ppca_method='eig', probabilistic=False, n_iteration=100, \
-                        verbose=False, print_every=10, trace_mse=False, cdata=None):
+                        verbose=False, print_every=10, trace_mse=False, cdata=None, tol=1e-3):
         self._data     = data.copy() 
         self._missing  = np.isnan(data)
         self._observed = ~self._missing
@@ -35,9 +35,9 @@ class PCAImputer:
             else:
                 self._pca.fit(self._data)
                 self._data[self._missing] = self._pca.inverse_transform(self._pca.transform(self._data))[self._missing]
-            self._mse[i] = np.sum((cdata-self._data)**2)/cdata.shape[0]
+            # self._mse[i] = np.sum((cdata-self._data)**2)/cdata.shape[0]
             if verbose and i % print_every == 0:
                 print('Iter %d, MSE=%f' %(i, self._mse[i]))
-            if np.abs(self._mse[i-1]-self._mse[i]) < 1e-3:
+            if np.abs(self._mse[i-1]-self._mse[i]) < tol:
                 break
         return self._data, self._mse
