@@ -1,6 +1,6 @@
 # BPCA
 
-This (\https://github.com/Duuuuuu/BPCA.}) is the repository for AM205's final project. 
+This is the repository for AM205's final project - Probabilistic and Bayesian Principal Component Analysis. 
 
 The files in this repository includes:
 
