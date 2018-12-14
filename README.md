@@ -1,6 +1,6 @@
 # BPCA
 
-This is the repository for AM205's final project.
+This (\https://github.com/Duuuuuu/BPCA.}) is the repository for AM205's final project. 
 
 The files in this repository includes:
 
