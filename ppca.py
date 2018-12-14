@@ -60,6 +60,9 @@ class PPCA(object):
         return loglikes
     
     def transform(self, data_observ, probabilistic=False):
+        """transform the observations into the latent space, when probabilistic
+        set to True, will draw a sample from the posterior distribution of the
+        latent variable"""
         assert len(data_observ.shape) == 2
         invM = pinv(self._calc_M())
         expect_data_latent = multi_dot([invM, self._W.T, 
@@ -75,6 +78,8 @@ class PPCA(object):
             return expect_data_latent.T
     
     def inverse_transform(self, data_latent, probabilistic=False):
+        """transform the latent variable into observations, when probabilistic
+        set to True, will draw a sample from the distribution of the observations"""
         assert len(data_latent.shape) == 2
         expect_data_observ = np.dot(self._W, data_latent.T) + self._mu
         if probabilistic:
@@ -84,12 +89,14 @@ class PPCA(object):
             return expect_data_observ.T
         
     def generate(self, n_sample):
+        """generate samples from the fitted model"""
         try:
             return multivariate_normal(self._mu.flatten(), self._C, n_sample)
         except:
             raise NotFittedError('This PPCA instance is not fitted yet. Call \'fit\' with appropriate arguments before using this method.')
     
     def calc_components(self):
+        """generate an orthonormal basis from the fitted model"""
         vals, vecs = eig(np.dot(self._W.T, self._W))
         return np.dot( self._W, pinv(np.dot(np.diag(vals**0.5), vecs.T)) ).T
     ######################## FITTING BY EM ALGORITHM ##########################
@@ -147,6 +154,7 @@ class PPCA(object):
     
     ########################### UTILITY FUNCTIONS #############################
     def _calc_S(self, X, mu):
+        """calculate the covariance matrix of observations X"""
         centeredX = X - mu
         return np.dot(centeredX, centeredX.T) / X.shape[1]
     
@@ -154,6 +162,7 @@ class PPCA(object):
         return self._sigma2 * np.eye(self._q) + np.dot(self._W.T, self._W)
     
     def _calc_loglike(self, X, mu):
+        """calculate the loglikelihood of observing data X"""
         return -self._N/2 * (self._d*np.log(2*np.pi) \
                + np.log(det(self._C)) \
                + np.trace(np.dot(pinv(self._C), self._calc_S(X, mu.reshape(-1,1)))))
