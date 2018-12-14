@@ -7,6 +7,9 @@ class PCAImputer:
         self._q = n_dimension
     
     def fit_transform(self, data, method='eig', probabilistic=False, n_iteration=100):
+        """fitting a PCA to the original data by iterativly filling the missing entries
+        with value generated from PCA. Each missing entries are initialized with the
+        row mean."""
         self._data     = data.copy() 
         self._missing  = np.isnan(data)
         self._observed = ~self._missing
