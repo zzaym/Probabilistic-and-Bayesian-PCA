@@ -156,7 +156,7 @@ class BPCA(object):
 
     def captured_dims(self):
         sum_alpha = np.sum(1/self.alpha)
-        self.ed = np.array([i for i, inv_alpha in enumerate(1/self.alpha) if inv_alpha > sum_alpha/self.q])
+        self.ed = np.array([i for i, inv_alpha in enumerate(1/self.alpha) if inv_alpha < sum_alpha/self.q])
 
 
     def transform(self, X=None, full=True):
