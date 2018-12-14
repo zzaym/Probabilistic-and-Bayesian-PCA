@@ -6,6 +6,8 @@ from bpca import BPCA
 class PCAImputer:
     
     def __init__(self, method='pca', n_dimension=0):
+        """There are three kind of PCA supported for this imputer: conventional
+        PCA, probabilistic PCA and Bayesian PCA."""
         self._q = n_dimension
         self._method = method
         if method == 'pca':
@@ -17,6 +19,9 @@ class PCAImputer:
     
     def fit_transform(self, data, ppca_method='eig', probabilistic=False, n_iteration=100, \
                         verbose=False, print_every=10, trace_mse=False, cdata=None, tol=1e-3):
+        """fitting a PCA to the original data by iterativly filling the missing entries
+        with value generated from PCA. Each missing entries are initialized with the
+        row mean."""
         self._data     = data.copy() 
         self._missing  = np.isnan(data)
         self._observed = ~self._missing
