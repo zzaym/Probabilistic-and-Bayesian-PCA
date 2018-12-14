@@ -10,30 +10,43 @@ class BPCA(object):
 
     def __init__(self, a_alpha=1e-3, b_alpha=1e-3, a_tau=1e-3, b_tau=1e-3, beta=1e-3):
         # hyperparameters
-        self.a_alpha = a_alpha
-        self.b_alpha = b_alpha
-        self.a_tau = a_tau
-        self.b_tau = b_tau
+        self.a_alpha = a_alpha # parameter of alpha's prior (a Gamma distribution)
+        self.b_alpha = b_alpha # parameter of alpha's prior (a Gamma distribution)
+        self.a_tau = a_tau     # parameter of tau's prior (a Gamma distribution)
+        self.b_tau = b_tau     # parameter of tau's prior (a Gamma distribution)
         self.beta = beta
+        # history of ELBOS
         self.elbos = None
         self.variations = None
+        # history of log likelihoods
         self.loglikelihoods = None
 
 
     def update(self):
+        """fixed-point update of the Bayesian PCA"""
+        # inverse of the sigma^2
         self.tau = self.a_tau_tilde / self.b_tau_tilde
+        # hyperparameters controlling the magnitudes of each column of the weight matrix
         self.alpha = self.a_alpha_tilde / self.b_alpha_tilde
+        # covariance matrix of the latent variables
         self.cov_z = np.linalg.inv(np.eye(self.q) + self.tau *
                         (np.trace(self.cov_w) + np.dot(self.mean_w.T, self.mean_w)))
+        # mean of the latent variable
         self.mean_z = self.tau * np.dot(np.dot(self.cov_z, self.mean_w.T), self.Xb - self.mean_mu)
+        # covariance matrix of the mean observation
         self.cov_mu = np.eye(self.d) / (self.beta + self.b * self.tau)
+        # mean of the mean observation
         self.mean_mu = self.tau * np.dot(self.cov_mu, np.sum(self.Xb-np.dot(self.mean_w,
                         self.mean_z), axis=1)).reshape(self.d, 1)
+        # covariance matrix of each column of the weight matrix
         self.cov_w = np.linalg.inv(np.diag(self.alpha) + self.tau *
                         (self.b * self.cov_z + np.dot(self.mean_z, self.mean_z.T)))
+        # mean of each column of the weight matrix
         self.mean_w = self.tau * np.dot(self.cov_w, np.dot(self.mean_z, (self.Xb-self.mean_mu).T)).T
+        # estimation of the b in alpha's Gamma distribution
         self.b_alpha_tilde = self.b_alpha + 0.5 * (np.trace(self.cov_w) +
                         np.diag(np.dot(self.mean_w.T, self.mean_w)))
+        # estimation of the b in tau's Gamma distribution
         self.b_tau_tilde = self.b_tau + 0.5 * np.trace(np.dot(self.Xb.T, self.Xb)) + \
                         0.5 * self.b*(np.trace(self.cov_mu)+np.dot(self.mean_mu.flatten(), self.mean_mu.flatten())) + \
                         0.5 * np.trace(np.dot(np.trace(self.cov_w)+np.dot(self.mean_w.T, self.mean_w),
@@ -44,6 +57,7 @@ class BPCA(object):
         
 
     def calculate_log_likelihood(self):
+        """calculate the log likelihood of observing self.X"""
         w = self.mean_w
         c = np.eye(self.d)*self.tau + np.dot(w, w.T) 
         xc = self.X - self.X.mean(axis=1).reshape(-1,1)
@@ -115,6 +129,7 @@ class BPCA(object):
 
 
     def fit(self, X=None, batch_size=128, iters=500, print_every=100, verbose=False, trace_elbo=False, trace_loglikelihood=False):
+        """fit the Bayesian PCA model using fixed-point update"""
          # data, # of samples, dims
         self.X = X.T # don't need to transpose X when passing it
         self.d = self.X.shape[0]
@@ -155,11 +170,13 @@ class BPCA(object):
 
 
     def captured_dims(self):
+        """return the number of captured dimensions"""
         sum_alpha = np.sum(1/self.alpha)
         self.ed = np.array([i for i, inv_alpha in enumerate(1/self.alpha) if inv_alpha < sum_alpha/self.q])
 
 
     def transform(self, X=None, full=True):
+        """generate samples from the fitted model"""
         X = self.X if X is None else X.T
         if full:
             w = self.mean_w
@@ -175,6 +192,7 @@ class BPCA(object):
 
 
     def inverse_transform(self, z, full=True):
+        """transform the latent variable into observations"""
         z = z.T
         if full:
             w = self.mean_w
@@ -191,6 +209,7 @@ class BPCA(object):
 
 
     def generate(self, size=1):
+        """generate samples from the fitted model"""
         w = self.mean_w[:, self.ed]
         c = np.eye(self.d)*self.tau + np.dot(w, w.T)
         return np.array([np.random.multivariate_normal(self.mean_mu.flatten(), c) for i in range(size)])
