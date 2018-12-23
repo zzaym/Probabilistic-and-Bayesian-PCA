@@ -1,4 +1,4 @@
-# BPCA
+# Probabilistic and Bayesian PCA
 
 ### Overview
 This repository is for the final project of Harvard AM205 "Numerical Methods". We examined two generalized versions of conventional PCA from a statistical perspective: Probabilistic PCA (PPCA) and Bayesian PCA (BPCA). We compared their behaviors on synthetic data and real-world data with dif- ferent distributions, and also explored the possible application for estimating missing data.
