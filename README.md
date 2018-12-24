@@ -23,5 +23,5 @@ This repository is for the final project of Harvard AM205 "Numerical Methods". W
    <li> <i>plots.ipynb</i>: code for experiments section in the final report</li>
    <li> <i>BPCA Test.ipynb</i>: experiments on the behavior of Bayesian PCA</li>
    <li> <i>Imputation Test</i>.ipynb: experiments on the behavior of PCAImputer</li>
-   <li> <i>recovering_SST.ipynb</i>: code for recovering sea suface temperature section in the final report, the data for this notebook can be found at https://drive.google.com/drive/folders/1gaVxsZJZfinTenCBicCRggJygEA50D7S?usp=sharing</li>
+   <li> <i>recovering_SST.ipynb</i>: code for recovering sea surface temperature section in the final report, the data for this notebook can be found at https://drive.google.com/drive/folders/1gaVxsZJZfinTenCBicCRggJygEA50D7S?usp=sharing</li>
 </ul>
